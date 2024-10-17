@@ -1,10 +1,10 @@
 // src/bin/main.rs
 
 use actix_web::{web, App, HttpServer};
-use video_streaming_lib::handler;
+use rsstreamslice_server::handler; // Use the correct crate name
 
-// const FILE_PATH: &str = "/home/m/Videos/ex1.mp4";
-const FILE_PATH: &str = "ex1.mp4"; // Use a relative path
+// const FILE_PATH: &str = "/home/x/Videos/ex1.mp4";
+const FILE_PATH: &str = "video.mp4"; // Use a relative path
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

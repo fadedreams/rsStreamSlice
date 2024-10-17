@@ -1,96 +1,56 @@
 // lib.rs
-
 use actix_web::{web, Error, HttpRequest, HttpResponse};
-use mime_guess::from_path;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
-use std::path::Path;
 
-pub struct StreamingConfig {
-    pub buffer_size: usize,
-}
-
-impl Default for StreamingConfig {
-    fn default() -> Self {
-        StreamingConfig {
-            buffer_size: 1024 * 8,
-        }
-    }
-}
-
+pub const BUFSIZE: usize = 1024 * 8;
+pub const CONTENT_TYPE: &str = "video/mp4";
 pub const ACCEPT_RANGES: &str = "bytes";
 
-pub async fn handler(
-    req: HttpRequest,
-    file_path: &str,
-    config: &StreamingConfig,
-) -> Result<HttpResponse, Error> {
+pub async fn handler(req: HttpRequest, file_path: &str) -> Result<HttpResponse, Error> {
     let file = File::open(file_path).map_err(Error::from)?;
     let file_size = file.metadata().map_err(Error::from)?.len();
-    let content_type = get_content_type(file_path);
-
     if let Some(range_header) = req.headers().get("Range") {
         Ok(serve_partial_file(
             file,
             file_size,
             range_header.to_str().unwrap_or(""),
-            config,
-            &content_type,
         ))
     } else {
-        Ok(serve_full_file(file, file_size, config, &content_type))
+        Ok(serve_full_file(file, file_size))
     }
 }
 
-fn get_content_type(file_path: &str) -> String {
-    from_path(file_path)
-        .first_or_octet_stream()
-        .essence_str()
-        .to_owned()
-}
-
-pub fn serve_full_file(
-    file: File,
-    file_size: u64,
-    config: &StreamingConfig,
-    content_type: &str,
-) -> HttpResponse {
+pub fn serve_full_file(file: File, file_size: u64) -> HttpResponse {
     HttpResponse::Ok()
-        .content_type(content_type)
+        .content_type(CONTENT_TYPE)
         .insert_header(("Accept-Ranges", ACCEPT_RANGES))
         .insert_header(("Content-Length", file_size.to_string()))
         .insert_header((
             "Content-Range",
             format!("bytes 0-{}/{}", file_size - 1, file_size),
         ))
-        .streaming(file_stream(file, config.buffer_size))
+        .streaming(file_stream(file))
 }
 
-pub fn serve_partial_file(
-    file: File,
-    file_size: u64,
-    range_header: &str,
-    config: &StreamingConfig,
-    content_type: &str,
-) -> HttpResponse {
+pub fn serve_partial_file(file: File, file_size: u64, range_header: &str) -> HttpResponse {
     let (start, end) = parse_range(range_header, file_size);
     HttpResponse::PartialContent()
-        .content_type(content_type)
+        .content_type(CONTENT_TYPE)
         .insert_header(("Accept-Ranges", ACCEPT_RANGES))
         .insert_header(("Content-Length", (end - start + 1).to_string()))
         .insert_header((
             "Content-Range",
             format!("bytes {}-{}/{}", start, end, file_size),
         ))
-        .streaming(file_stream_partial(file, start, end, config.buffer_size))
+        .streaming(file_stream_partial(file, start, end))
 }
 
 pub fn file_stream(
     mut file: File,
-    buffer_size: usize,
 ) -> impl futures::Stream<Item = Result<web::Bytes, std::io::Error>> {
     futures::stream::unfold(file, move |mut file| async move {
-        let mut buffer = vec![0; buffer_size];
+        let mut buffer = vec![0; BUFSIZE];
         match file.read(&mut buffer) {
             Ok(0) => None,
             Ok(n) => Some((Ok(web::Bytes::from(buffer[..n].to_vec())), file)),
@@ -103,13 +63,12 @@ pub fn file_stream_partial(
     mut file: File,
     start: u64,
     end: u64,
-    buffer_size: usize,
 ) -> impl futures::Stream<Item = Result<web::Bytes, std::io::Error>> {
     futures::stream::unfold((file, start), move |(mut file, start)| async move {
         if start > end {
             return None;
         }
-        let mut buffer = vec![0; buffer_size];
+        let mut buffer = vec![0; BUFSIZE];
         match file.seek(SeekFrom::Start(start)) {
             Ok(_) => (),
             Err(e) => return Some((Err(e), (file, start))),

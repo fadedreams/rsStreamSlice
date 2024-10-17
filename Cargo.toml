@@ -1,9 +1,9 @@
 [package]
-name = "video_streaming_project"
+name = "rsstreamslice_server"
 version = "0.1.0"
 edition = "2021"
 authors = ["fadedreams7 <fadedreams7@email.com>"]
-keywords = [ "video_streaming", "partial_streaming", "streaming" ]
+keywords = ["video_streaming", "partial_streaming", "streaming"]
 categories = ["no-std"]
 license-file = "LICENSE"
 description = "A Rust library for efficient video streaming with support for partial content delivery."
@@ -12,11 +12,11 @@ homepage = "https://github.com/fadedreams/rsstreamslice"
 repository = "https://github.com/fadedreams/rsstreamslice"
 
 [lib]
-name = "video_streaming_lib"
+name = "rsstreamslice_server"
 path = "src/lib.rs"
 
 [[bin]]
-name = "video_streaming_server"
+name = "rsstreamslice_server"
 path = "src/bin/main.rs"
 
 [dependencies]
