@@ -47,7 +47,7 @@ pub fn serve_partial_file(file: File, file_size: u64, range_header: &str) -> Htt
 }
 
 pub fn file_stream(
-    mut file: File,
+    file: File, // Now without `mut`
 ) -> impl futures::Stream<Item = Result<web::Bytes, std::io::Error>> {
     futures::stream::unfold(file, move |mut file| async move {
         let mut buffer = vec![0; BUFSIZE];
@@ -60,7 +60,7 @@ pub fn file_stream(
 }
 
 pub fn file_stream_partial(
-    mut file: File,
+    file: File, // Now without `mut`
     start: u64,
     end: u64,
 ) -> impl futures::Stream<Item = Result<web::Bytes, std::io::Error>> {
