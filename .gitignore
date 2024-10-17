@@ -1,0 +1,32 @@
+# Rust build artifacts
+/target/
+
+# Generated files
+**/*.rs.bk
+**/*.rs.orig
+**/*.rlib
+**/*.dSYM
+
+# Cargo.lock (optional, depending on your needs)
+# If your library is a workspace, you may want to keep this file.
+/Cargo.lock
+
+# IDE specific files
+/.idea/
+/.vscode/
+/*.sublime-project
+/*.sublime-workspace
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Rust-specific files
+**/*.pdb
+**/*.ilk
+**/*.exe
+**/*.dll
+**/*.so
+**/*.dylib
+**/*.o
+**/*.a
