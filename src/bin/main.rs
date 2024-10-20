@@ -1,15 +1,22 @@
-// src/bin/main.rs
-
 use actix_web::{web, App, HttpServer};
-use rsstreamslice_server::handler; // Use the correct crate name
-
-// const FILE_PATH: &str = "/home/x/Videos/ex1.mp4";
-const FILE_PATH: &str = "video.mp4"; // Use a relative path
+use env_logger::Env;
+use rsstreamslice_server::handler;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| App::new().route("/", web::get().to(|req| handler(req, FILE_PATH))))
-        .bind("127.0.0.1:8080")?
-        .run()
-        .await
+    // Initialize logger
+    env_logger::init_from_env(Env::default().default_filter_or("info"));
+
+    // Define file paths
+    let video_path = "video.mp4";
+
+    HttpServer::new(move || {
+        App::new()
+            .route("/", web::get().to(move |req| handler(req, video_path)))
+            .route("/video", web::get().to(move |req| handler(req, video_path)))
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
 }
+

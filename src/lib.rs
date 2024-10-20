@@ -1,29 +1,66 @@
-// lib.rs
-use actix_web::{web, Error, HttpRequest, HttpResponse};
+use actix_web::{Error, HttpRequest, HttpResponse};
+use futures::stream::Stream;
+use log::{error, info};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
+use std::path::Path;
 
 pub const BUFSIZE: usize = 1024 * 8;
-pub const CONTENT_TYPE: &str = "video/mp4";
 pub const ACCEPT_RANGES: &str = "bytes";
 
+// Define supported content types
+pub fn get_content_type(file_path: &str) -> &'static str {
+    match Path::new(file_path)
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+    {
+        Some("mp4") => "video/mp4",
+        Some("mp3") => "audio/mpeg",
+        Some("pdf") => "application/pdf",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("png") => "image/png",
+        _ => "application/octet-stream",
+    }
+}
+
 pub async fn handler(req: HttpRequest, file_path: &str) -> Result<HttpResponse, Error> {
-    let file = File::open(file_path).map_err(Error::from)?;
-    let file_size = file.metadata().map_err(Error::from)?.len();
+    info!("Handling request for file: {}", file_path);
+
+    let file = match File::open(file_path) {
+        Ok(file) => file,
+        Err(e) => {
+            error!("Failed to open file {}: {}", file_path, e);
+            return Err(Error::from(e));
+        }
+    };
+
+    let file_size = match file.metadata() {
+        Ok(metadata) => metadata.len(),
+        Err(e) => {
+            error!("Failed to get file metadata for {}: {}", file_path, e);
+            return Err(Error::from(e));
+        }
+    };
+
+    let content_type = get_content_type(file_path);
+
     if let Some(range_header) = req.headers().get("Range") {
+        info!("Serving partial content for file: {}", file_path);
         Ok(serve_partial_file(
             file,
             file_size,
             range_header.to_str().unwrap_or(""),
+            content_type,
         ))
     } else {
-        Ok(serve_full_file(file, file_size))
+        info!("Serving full file: {}", file_path);
+        Ok(serve_full_file(file, file_size, content_type))
     }
 }
 
-pub fn serve_full_file(file: File, file_size: u64) -> HttpResponse {
+pub fn serve_full_file(file: File, file_size: u64, content_type: &str) -> HttpResponse {
     HttpResponse::Ok()
-        .content_type(CONTENT_TYPE)
+        .content_type(content_type)
         .insert_header(("Accept-Ranges", ACCEPT_RANGES))
         .insert_header(("Content-Length", file_size.to_string()))
         .insert_header((
@@ -33,10 +70,15 @@ pub fn serve_full_file(file: File, file_size: u64) -> HttpResponse {
         .streaming(file_stream(file))
 }
 
-pub fn serve_partial_file(file: File, file_size: u64, range_header: &str) -> HttpResponse {
+pub fn serve_partial_file(
+    file: File,
+    file_size: u64,
+    range_header: &str,
+    content_type: &str,
+) -> HttpResponse {
     let (start, end) = parse_range(range_header, file_size);
     HttpResponse::PartialContent()
-        .content_type(CONTENT_TYPE)
+        .content_type(content_type)
         .insert_header(("Accept-Ranges", ACCEPT_RANGES))
         .insert_header(("Content-Length", (end - start + 1).to_string()))
         .insert_header((
@@ -47,23 +89,23 @@ pub fn serve_partial_file(file: File, file_size: u64, range_header: &str) -> Htt
 }
 
 pub fn file_stream(
-    file: File, // Now without `mut`
-) -> impl futures::Stream<Item = Result<web::Bytes, std::io::Error>> {
+    file: File,
+) -> impl Stream<Item = Result<actix_web::web::Bytes, std::io::Error>> {
     futures::stream::unfold(file, move |mut file| async move {
         let mut buffer = vec![0; BUFSIZE];
         match file.read(&mut buffer) {
             Ok(0) => None,
-            Ok(n) => Some((Ok(web::Bytes::from(buffer[..n].to_vec())), file)),
+            Ok(n) => Some((Ok(actix_web::web::Bytes::from(buffer[..n].to_vec())), file)),
             Err(e) => Some((Err(e), file)),
         }
     })
 }
 
 pub fn file_stream_partial(
-    file: File, // Now without `mut`
+    file: File,
     start: u64,
     end: u64,
-) -> impl futures::Stream<Item = Result<web::Bytes, std::io::Error>> {
+) -> impl Stream<Item = Result<actix_web::web::Bytes, std::io::Error>> {
     futures::stream::unfold((file, start), move |(mut file, start)| async move {
         if start > end {
             return None;
@@ -78,7 +120,7 @@ pub fn file_stream_partial(
             Ok(n) => {
                 let n = std::cmp::min(n as u64, end - start + 1) as usize;
                 Some((
-                    Ok(web::Bytes::from(buffer[..n].to_vec())),
+                    Ok(actix_web::web::Bytes::from(buffer[..n].to_vec())),
                     (file, start + n as u64),
                 ))
             }
@@ -104,3 +146,4 @@ pub fn parse_range(range_header: &str, file_size: u64) -> (u64, u64) {
     }
     (start, end)
 }
+
