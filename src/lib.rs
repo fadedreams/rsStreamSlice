@@ -16,9 +16,6 @@ pub fn get_content_type(file_path: &str) -> &'static str {
     {
         Some("mp4") => "video/mp4",
         Some("mp3") => "audio/mpeg",
-        Some("pdf") => "application/pdf",
-        Some("jpg") | Some("jpeg") => "image/jpeg",
-        Some("png") => "image/png",
         _ => "application/octet-stream",
     }
 }
@@ -146,4 +143,3 @@ pub fn parse_range(range_header: &str, file_size: u64) -> (u64, u64) {
     }
     (start, end)
 }
-
