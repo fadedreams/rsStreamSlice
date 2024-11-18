@@ -103,19 +103,24 @@ pub fn file_stream_partial(
     start: u64,
     end: u64,
 ) -> impl Stream<Item = Result<actix_web::web::Bytes, std::io::Error>> {
+    const PREFETCH_WINDOW: u64 = BUFSIZE as u64 * 4; // Prefetch 4 chunks beyond the requested range
+
+    let prefetch_end = std::cmp::min(end + PREFETCH_WINDOW, file.metadata().unwrap().len() - 1);
+
     futures::stream::unfold((file, start), move |(mut file, start)| async move {
-        if start > end {
+        if start > prefetch_end {
             return None;
         }
+
         let mut buffer = vec![0; BUFSIZE];
-        match file.seek(SeekFrom::Start(start)) {
-            Ok(_) => (),
-            Err(e) => return Some((Err(e), (file, start))),
+        if let Err(e) = file.seek(SeekFrom::Start(start)) {
+            return Some((Err(e), (file, start)));
         }
+
         match file.read(&mut buffer) {
-            Ok(0) => None,
+            Ok(0) => None, // EOF
             Ok(n) => {
-                let n = std::cmp::min(n as u64, end - start + 1) as usize;
+                let n = std::cmp::min(n as u64, prefetch_end - start + 1) as usize;
                 Some((
                     Ok(actix_web::web::Bytes::from(buffer[..n].to_vec())),
                     (file, start + n as u64),
