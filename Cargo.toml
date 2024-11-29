@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["fadedreams7 <fadedreams7@email.com>"]
 description = "A Rust library for efficient video streaming with support for partial content delivery."
-license = "MIT"  # Change this based on your LICENSE file
+license = "MIT"
 repository = "https://github.com/fadedreams/rsstreamslice"
 documentation = "https://github.com/fadedreams/rsstreamslice"
 homepage = "https://github.com/fadedreams/rsstreamslice"
@@ -25,3 +25,4 @@ actix-web = "4.0"
 futures = "0.3"
 log = "0.4"
 env_logger = "0.9"
+tokio = { version = "1", features = ["full"] }

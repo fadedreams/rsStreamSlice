@@ -9,6 +9,7 @@ A web server built using Actix that allows streaming of video and audio files wi
 - Stream video files in MP4 format.
 - Stream audio files in MP3 format.
 - Support for HTTP byte-range requests for partial content delivery.
+- Prefetching for smoother playback by buffering future chunks ahead of the requested range.
 - Logging for monitoring requests and errors.
 
 ## Getting Started
